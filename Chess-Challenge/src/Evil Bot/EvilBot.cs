@@ -1,54 +1,62 @@
 ﻿using ChessChallenge.API;
 using System;
+using ChessChallenge.Application;
 
 namespace ChessChallenge.Example
 {
-    // A simple bot that can spot mate in one, and always captures the most valuable piece it can.
-    // Plays randomly otherwise.
     public class EvilBot : IChessBot
     {
-        // Piece values: null, pawn, knight, bishop, rook, queen, king
-        int[] pieceValues = { 0, 100, 300, 300, 500, 900, 10000 };
-
         public Move Think(Board board, Timer timer)
         {
-            Move[] allMoves = board.GetLegalMoves();
+            return Search(board);
+        }
 
-            // Pick a random move to play if nothing better is found
-            Random rng = new();
-            Move moveToPlay = allMoves[rng.Next(allMoves.Length)];
-            int highestValueCapture = 0;
+        public int SimpleEval(Board board)
+        {
+            int whoToPlay = board.IsWhiteToMove ? 1 : -1;
 
-            foreach (Move move in allMoves)
+            if (board.IsInCheckmate())
             {
-                // Always play checkmate in one
-                if (MoveIsCheckmate(board, move))
-                {
-                    moveToPlay = move;
-                    break;
-                }
+                return 10_000 * whoToPlay;
+            }
+            
+            int score = 1_000 *
+                        (board.GetPieceList(PieceType.King, true).Count -
+                         board.GetPieceList(PieceType.King, false).Count);
+            score += 9 *
+                     (board.GetPieceList(PieceType.Queen, true).Count -
+                      board.GetPieceList(PieceType.Queen, false).Count);
+            score += 5 *
+                     (board.GetPieceList(PieceType.Rook, true).Count - board.GetPieceList(PieceType.Rook, false).Count);
+            score += 3 *
+                     (board.GetPieceList(PieceType.Bishop, true).Count -
+                      board.GetPieceList(PieceType.Bishop, false).Count);
+            score += 3 *
+                     (board.GetPieceList(PieceType.Knight, true).Count -
+                      board.GetPieceList(PieceType.Knight, false).Count);
+            score += 1 *
+                     (board.GetPieceList(PieceType.Pawn, true).Count - board.GetPieceList(PieceType.Pawn, false).Count);
 
-                // Find highest value capture
-                Piece capturedPiece = board.GetPiece(move.TargetSquare);
-                int capturedPieceValue = pieceValues[(int)capturedPiece.PieceType];
+            return score * whoToPlay;
+        }
 
-                if (capturedPieceValue > highestValueCapture)
+        public Move Search(Board board)
+        {
+            int maxScore = Int32.MinValue;
+            Move bestMove = Move.NullMove;
+            Move[] moves = board.GetLegalMoves();
+            foreach (Move move in moves)
+            {
+                board.MakeMove(move);
+                int score = SimpleEval(board);
+                board.UndoMove(move);
+                if (score > maxScore)
                 {
-                    moveToPlay = move;
-                    highestValueCapture = capturedPieceValue;
+                    bestMove = move;
                 }
             }
 
-            return moveToPlay;
-        }
-
-        // Test if this move gives checkmate
-        bool MoveIsCheckmate(Board board, Move move)
-        {
-            board.MakeMove(move);
-            bool isMate = board.IsInCheckmate();
-            board.UndoMove(move);
-            return isMate;
+            return bestMove;
         }
     }
 }
