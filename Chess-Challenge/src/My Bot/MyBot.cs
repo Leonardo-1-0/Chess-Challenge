@@ -1,4 +1,4 @@
-﻿using System;
+﻿using System.Collections;
 using ChessChallenge.API;
 
 
@@ -31,7 +31,6 @@ public class MyBot : IChessBot
     }
 
 
-//    TODO: Trade down bonus for winning side
 //    TODO: Increase value of center pawns, decrease side pawns
 //    TODO: No pawn penalty (harder to win endgames)
 //    TODO: Penalty for rook pair
@@ -101,6 +100,15 @@ public class MyBot : IChessBot
         }
         evaluation += 0.1 * (whiteMoves.Length - blackMoves.Length);
 
+
+        //trade down bonus when in advantage
+        PieceList[] whitePieceList = { whiteKing, whiteQueen, whiteRooks, whiteBishops, whiteKnights, whitePawns };
+        PieceList[] blackPieceList = { blackKing, blackQueen, blackRooks, blackBishops, blackKnights, blackPawns };
+        if (evaluation * whoToPlay > 1.0)
+        {
+            evaluation += 0.15 * (whitePieceList.Length - blackPieceList.Length);
+        }
+
         return evaluation * whoToPlay;
     }
 
@@ -113,7 +121,7 @@ public class MyBot : IChessBot
         {
             return Evaluate(board);
         }
-        Move[] moves = board.GetLegalMoves();
+        ArrayList moves = GenerateOrderedMoves(board);
         foreach (Move move in moves)
         {
             board.MakeMove(move);
@@ -136,7 +144,8 @@ public class MyBot : IChessBot
         {
             return -Evaluate(board);
         }
-        Move[] moves = board.GetLegalMoves();
+
+        ArrayList moves = GenerateOrderedMoves(board);
         foreach (Move move in moves)
         {
             board.MakeMove(move);
@@ -151,5 +160,19 @@ public class MyBot : IChessBot
         }
 
         return beta;
+    }
+
+    ArrayList GenerateOrderedMoves(Board board)
+    {
+        ArrayList moves = new ArrayList(board.GetLegalMoves(capturesOnly: true));
+        Move[] _moves = board.GetLegalMoves();
+        foreach (Move move in _moves)
+        {
+            if (!move.IsCapture)
+            {
+                moves.Add(move);
+            }
+        }
+        return moves;
     }
 }
