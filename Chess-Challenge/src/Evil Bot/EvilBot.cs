@@ -6,12 +6,36 @@ namespace ChessChallenge.Example
 {
     public class EvilBot : IChessBot
     {
+        private enum NodeType
+        {
+            Exact, UpperBound, LowerBound
+        }
+        //{ Zobrist-key, board state, depth, eval, node-type, age }
+        private readonly (ulong, Board, int, int, int)[] transpositionTable = new (ulong, Board, int, int, int)[0x400000];
         public Move Think(Board board, Timer timer)
         {
-            return Search(board);
+            int depth = 3;
+            int maxScore = Int32.MinValue;
+            Move bestMove = Move.NullMove;
+            
+            Span<Move> moves = stackalloc Move[256];
+            board.GetLegalMovesNonAlloc(ref moves);
+            foreach (Move move in moves)
+            {
+                board.MakeMove(move);
+                int score = NegamaxAlphaBeta(board, 3, Int32.MinValue, Int32.MaxValue);
+                board.UndoMove(move);
+                if (score > maxScore)
+                {
+                    maxScore = score;
+                    bestMove = move;
+                }
+            }
+
+            return bestMove;
         }
 
-        public int SimpleEval(Board board)
+        private int SimpleEval(Board board)
         {
             int whoToPlay = board.IsWhiteToMove ? 1 : -1;
 
@@ -40,23 +64,31 @@ namespace ChessChallenge.Example
             return score * whoToPlay;
         }
 
-        public Move Search(Board board)
+        
+        private int NegamaxAlphaBeta(Board board, int depth, int alpha, int beta)
         {
+            if (depth <= 0 || board.IsInCheckmate() || board.IsInStalemate() || board.IsInsufficientMaterial())
+            {
+                return SimpleEval(board);
+            }
+            
             int maxScore = Int32.MinValue;
-            Move bestMove = Move.NullMove;
-            Move[] moves = board.GetLegalMoves();
+            Span<Move> moves = stackalloc Move[256];
+            board.GetLegalMovesNonAlloc(ref moves);
             foreach (Move move in moves)
             {
                 board.MakeMove(move);
-                int score = SimpleEval(board);
+                int score = -NegamaxAlphaBeta(board, depth - 1, -alpha, -beta);
                 board.UndoMove(move);
-                if (score > maxScore)
+                maxScore = Math.Max(maxScore, score);
+                alpha = Math.Max(alpha, score);
+                if (alpha >= beta)
                 {
-                    bestMove = move;
+                    return alpha;
                 }
             }
 
-            return bestMove;
+            return maxScore;
         }
     }
 }
